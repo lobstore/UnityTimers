@@ -1,0 +1,10 @@
+{
+  "name": "com.logiygames.timers",
+  "version": "1.0.0",
+  "displayName": "LOGIYGames Timers",
+  "description": "Полезные таймеры расширения для Unity",
+  "unity": "2022.3"
+  "author": {
+	"name": "LOGIYGames"
+  }
+}

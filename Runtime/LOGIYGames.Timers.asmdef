@@ -1,0 +1,16 @@
+{
+    "name": "LOGIYGames.Timers",
+    "rootNamespace": "LOGIYGames.Timers",
+    "references": [
+        "GUID:893abd5ee81be1e4ebdde35ab9f8eadb"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
