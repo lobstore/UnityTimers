@@ -1,0 +1,296 @@
+{
+  "contractVersion": "1.0.0",
+  "package": {
+    "name": "com.logiygames.timers",
+    "displayName": "LOGIYGames Timers",
+    "packageVersion": "1.0.0",
+    "unityVersion": "2022.3",
+    "assembly": "LOGIYGames.Timers",
+    "namespace": "LOGIYGames.Timers"
+  },
+  "runtime": {
+    "updatePhase": "UnityEngine.PlayerLoop.Update",
+    "deltaTime": "Time.deltaTime (scaled game time)",
+    "bootstrap": "TimerBootstrapper installs TimerManager.UpdateTimers after assemblies load; it removes existing package callbacks first to avoid duplicate insertion.",
+    "noSceneComponentRequired": true
+  },
+  "lifecycleSemantics": {
+    "start": "Resets CurrentTime to the initial value. Registers only when transitioning from not running to running. Repeated Start while running resets the timer without duplicate registration or a second OnTimerStart callback.",
+    "stop": "Stops and deregisters. Invokes OnTimerStop only when transitioning from running to stopped.",
+    "pause": "Deregisters while preserving CurrentTime. Does not invoke OnTimerStop.",
+    "resume": "Registers again while preserving CurrentTime. Does not invoke OnTimerStart.",
+    "reset": "Changes CurrentTime but does not alter running/paused state.",
+    "dispose": "Permanently deregisters; if running, invokes OnTimerStop. Start, Resume, and Reset after disposal throw ObjectDisposedException.",
+    "events": "OnTimerStart and OnTimerStop are public Action fields initialized to no-op delegates; invoking is null-safe if assigned null."
+  },
+  "types": [
+    {
+      "name": "Timer",
+      "kind": "abstract IDisposable",
+      "properties": [
+        {
+          "name": "CurrentTime",
+          "type": "float",
+          "access": "public get / protected set",
+          "summary": "Current value in seconds; interpretation depends on derived timer."
+        },
+        {
+          "name": "IsRunning",
+          "type": "bool",
+          "access": "public get / private set",
+          "summary": "True while registered and advancing."
+        }
+      ],
+      "fields": [
+        {
+          "name": "OnTimerStart",
+          "type": "Action",
+          "summary": "Invoked on Start transition to running."
+        },
+        {
+          "name": "OnTimerStop",
+          "type": "Action",
+          "summary": "Invoked on Stop transition and when disposing an active timer."
+        }
+      ],
+      "methods": [
+        {
+          "name": "Start",
+          "signature": "void Start()",
+          "behavior": "Resets to initial value and starts or restarts timer.",
+          "throws": "ObjectDisposedException after Dispose."
+        },
+        {
+          "name": "Stop",
+          "signature": "void Stop()",
+          "behavior": "Stops and deregisters; idempotent."
+        },
+        {
+          "name": "Pause",
+          "signature": "void Pause()",
+          "behavior": "Deregisters without resetting time or firing OnTimerStop."
+        },
+        {
+          "name": "Resume",
+          "signature": "void Resume()",
+          "behavior": "Re-registers without resetting time or firing OnTimerStart.",
+          "throws": "ObjectDisposedException after Dispose."
+        },
+        {
+          "name": "Tick",
+          "signature": "abstract void Tick(float deltaTime)",
+          "behavior": "Advances using the supplied finite, non-negative delta."
+        },
+        {
+          "name": "IsFinished",
+          "signature": "abstract bool IsFinished",
+          "behavior": "Completion state defined by each concrete timer."
+        },
+        {
+          "name": "Reset",
+          "signature": "virtual void Reset()",
+          "behavior": "Restores initial value while preserving running state.",
+          "throws": "ObjectDisposedException after Dispose."
+        },
+        {
+          "name": "Reset",
+          "signature": "virtual void Reset(float newTime)",
+          "behavior": "Sets a new finite, non-negative initial value and resets.",
+          "throws": "ArgumentOutOfRangeException for negative or non-finite value; ObjectDisposedException after Dispose."
+        },
+        {
+          "name": "Dispose",
+          "signature": "void Dispose()",
+          "behavior": "Permanently deregisters and stops the timer; idempotent."
+        }
+      ],
+      "constraints": [
+        "Constructor time and Reset(float) time must be finite and non-negative.",
+        "Tick(deltaTime) implementations reject negative, NaN, and infinite deltas."
+      ]
+    },
+    {
+      "name": "CountdownTimer",
+      "kind": "class extends Timer",
+      "constructor": "CountdownTimer(float value = 0f)",
+      "properties": [
+        {
+          "name": "Progress",
+          "type": "float",
+          "summary": "Elapsed fraction clamped to [0,1]. A zero-duration timer returns 1 to avoid division by zero."
+        },
+        {
+          "name": "IsFinished",
+          "type": "bool",
+          "summary": "True when CurrentTime <= 0."
+        }
+      ],
+      "methods": [
+        {
+          "name": "Tick",
+          "signature": "override void Tick(float deltaTime)",
+          "behavior": "Subtracts delta and clamps at zero; calls Stop at completion."
+        }
+      ],
+      "example": "var timer = new CountdownTimer(5f); timer.Start();"
+    },
+    {
+      "name": "IntervalTimer",
+      "kind": "class extends CountdownTimer",
+      "constructor": "IntervalTimer(float totalTime, float intervalSeconds)",
+      "fields": [
+        {
+          "name": "OnInterval",
+          "type": "Action",
+          "summary": "Invoked for every crossed threshold."
+        }
+      ],
+      "methods": [
+        {
+          "name": "Tick",
+          "signature": "override void Tick(float deltaTime)",
+          "behavior": "Counts down and invokes OnInterval for every interval threshold crossed, including multiple thresholds in one frame."
+        },
+        {
+          "name": "Reset",
+          "signature": "override void Reset()",
+          "behavior": "Restores countdown and first interval threshold."
+        },
+        {
+          "name": "Reset",
+          "signature": "override void Reset(float newTime)",
+          "behavior": "Changes total duration and restores interval threshold."
+        }
+      ],
+      "constraints": [
+        "intervalSeconds must be finite and greater than zero.",
+        "An interval longer than totalTime produces no interval callbacks."
+      ]
+    },
+    {
+      "name": "FrequencyTimer",
+      "kind": "class extends Timer",
+      "constructor": "FrequencyTimer(int ticksPerSecond)",
+      "properties": [
+        {
+          "name": "TicksPerSecond",
+          "type": "int",
+          "summary": "Configured callback rate; positive integer."
+        }
+      ],
+      "fields": [
+        {
+          "name": "OnTick",
+          "type": "Action",
+          "summary": "Invoked once per elapsed frequency interval."
+        }
+      ],
+      "methods": [
+        {
+          "name": "Tick",
+          "signature": "override void Tick(float deltaTime)",
+          "behavior": "Accumulates time and invokes OnTick for every elapsed threshold, preserving the remainder."
+        },
+        {
+          "name": "Reset",
+          "signature": "override void Reset()",
+          "behavior": "Clears elapsed-time accumulator."
+        },
+        {
+          "name": "Reset",
+          "signature": "void Reset(int newTicksPerSecond)",
+          "behavior": "Changes rate and clears accumulator."
+        }
+      ],
+      "constraints": [
+        "ticksPerSecond must be greater than zero.",
+        "IsFinished is true whenever the timer is not running."
+      ]
+    },
+    {
+      "name": "StopwatchTimer",
+      "kind": "class extends Timer",
+      "constructor": "StopwatchTimer()",
+      "properties": [
+        {
+          "name": "IsFinished",
+          "type": "bool",
+          "summary": "Always false."
+        }
+      ],
+      "methods": [
+        {
+          "name": "Tick",
+          "signature": "override void Tick(float deltaTime)",
+          "behavior": "Adds deltaTime while running."
+        }
+      ]
+    },
+    {
+      "name": "TimerManager",
+      "kind": "staticClass",
+      "methods": [
+        {
+          "name": "RegisterTimer",
+          "signature": "static void RegisterTimer(Timer timer)",
+          "behavior": "Adds non-null timer once; duplicate registrations are ignored."
+        },
+        {
+          "name": "DeregisterTimer",
+          "signature": "static void DeregisterTimer(Timer timer)",
+          "behavior": "Removes timer if present."
+        },
+        {
+          "name": "UpdateTimers",
+          "signature": "static void UpdateTimers()",
+          "behavior": "Called by PlayerLoop in Update; advances a snapshot using Time.deltaTime. Reentrant calls are ignored."
+        },
+        {
+          "name": "Clear",
+          "signature": "static void Clear()",
+          "behavior": "Disposes currently registered timers and clears the registry."
+        }
+      ]
+    },
+    {
+      "name": "PlayerLoopUtils",
+      "kind": "staticClass",
+      "methods": [
+        {
+          "name": "RemoveSystem",
+          "signature": "static void RemoveSystem<T>(ref PlayerLoopSystem loop, in PlayerLoopSystem systemToRemove)",
+          "behavior": "Removes all nested systems matching both type and updateDelegate."
+        },
+        {
+          "name": "InsertSystem",
+          "signature": "static bool InsertSystem<T>(ref PlayerLoopSystem loop, in PlayerLoopSystem systemToInsert, int index)",
+          "behavior": "Inserts into first parent whose type is T; false when parent is absent; throws ArgumentOutOfRangeException for invalid child index."
+        },
+        {
+          "name": "PrintPlayerLoop",
+          "signature": "static void PrintPlayerLoop(PlayerLoopSystem loop)",
+          "behavior": "Writes the full nested PlayerLoop tree to the Unity Console; handles nodes without children."
+        }
+      ]
+    }
+  ],
+  "failureModes": [
+    "CountdownTimer and base Timer durations must be finite and non-negative.",
+    "IntervalTimer interval must be finite and greater than zero.",
+    "FrequencyTimer ticksPerSecond must be greater than zero.",
+    "Timer.Start, Resume, and Reset after Dispose throw ObjectDisposedException."
+  ],
+  "minimalExamples": {
+    "countdown": "var timer = new CountdownTimer(5f); timer.OnTimerStop += OnFinished; timer.Start();",
+    "pauseResume": "timer.Pause(); // preserves remaining time\ntimer.Resume(); // continues from remaining time",
+    "interval": "var timer = new IntervalTimer(10f, 2f); timer.OnInterval += OnInterval; timer.Start();",
+    "frequency": "var timer = new FrequencyTimer(4); timer.OnTick += OnTick; timer.Start();",
+    "stopwatch": "var timer = new StopwatchTimer(); timer.Start(); float elapsed = timer.CurrentTime;"
+  },
+  "compatibilityNotes": [
+    "Unity package manifest targets 2022.3.",
+    "Public namespace is LOGIYGames.Timers and assembly is LOGIYGames.Timers.",
+    "Runtime asmdef retains existing GUID reference to the project's Extensions assembly.",
+    "No .meta files are changed."
+  ]
+}
