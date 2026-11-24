@@ -3,23 +3,41 @@ using UnityEngine;
 namespace LOGIYGames.Timers
 {
     /// <summary>
-    /// Timer that counts down from a specific value to zero.
+    /// Timer that counts down from an initial duration to zero.
     /// </summary>
-    public class CountdownTimer : Timer {
-        public CountdownTimer(float value = 0) : base(value) { }
+    public class CountdownTimer : Timer
+    {
+        /// <summary>Creates a countdown timer.</summary>
+        /// <param name="value">Initial duration in seconds; defaults to zero.</param>
+        public CountdownTimer(float value = 0f) : base(value)
+        {
+        }
 
-        public override void Tick(float deltaTime) {
-            if (IsRunning && CurrentTime > 0) {
-                CurrentTime -= deltaTime;
+        /// <summary>Subtracts delta time and stops when the countdown reaches zero.</summary>
+        public override void Tick(float deltaTime)
+        {
+            ValidateDeltaTime(deltaTime);
+            if (!IsRunning)
+            {
+                return;
             }
 
-            if (IsRunning && CurrentTime <= 0) {
+            CurrentTime = Mathf.Max(0f, CurrentTime - deltaTime);
+            if (CurrentTime <= 0f)
+            {
                 Stop();
             }
         }
 
-        public override bool IsFinished => CurrentTime <= 0;
+        /// <inheritdoc />
+        public override bool IsFinished => CurrentTime <= 0f;
 
-        public virtual float Progress => Mathf.Clamp((initialTime - CurrentTime) / initialTime, 0, 1);
+        /// <summary>
+        /// Progress from zero (not elapsed) to one (completed).
+        /// A zero-duration countdown reports 1 to avoid division by zero and NaN.
+        /// </summary>
+        public virtual float Progress => initialTime <= 0f
+            ? 1f
+            : Mathf.Clamp01((initialTime - CurrentTime) / initialTime);
     }
 }

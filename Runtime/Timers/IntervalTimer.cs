@@ -4,42 +4,69 @@ using UnityEngine;
 namespace LOGIYGames.Timers
 {
     /// <summary>
-    /// Countdown timer that fires an event every interval until completion.
+    /// Counts down from a total duration and invokes an event at each configured interval.
     /// </summary>
-    public class IntervalTimer : CountdownTimer {
-        readonly float interval;
-        float nextInterval;
+    /// <remarks>
+    /// Interval events are emitted for every threshold crossed, including multiple thresholds
+    /// during a single frame. An interval longer than the total duration produces no interval events.
+    /// </remarks>
+    public class IntervalTimer : CountdownTimer
+    {
+        private readonly float interval;
+        private float nextInterval;
 
+        /// <summary>Invoked each time the remaining duration crosses an interval threshold.</summary>
         public Action OnInterval = delegate { };
 
-        public IntervalTimer(float totalTime, float intervalSeconds) : base(totalTime) {
+        /// <summary>Creates an interval countdown.</summary>
+        /// <param name="totalTime">Total duration in seconds.</param>
+        /// <param name="intervalSeconds">Interval in seconds; must be positive.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when intervalSeconds is non-positive or non-finite.</exception>
+        public IntervalTimer(float totalTime, float intervalSeconds) : base(totalTime)
+        {
+            if (float.IsNaN(intervalSeconds) || float.IsInfinity(intervalSeconds) || intervalSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(intervalSeconds), intervalSeconds, "Interval must be finite and greater than zero.");
+            }
+
             interval = intervalSeconds;
             nextInterval = totalTime - interval;
         }
 
-        public override void Tick(float deltaTime) {
-            if (IsRunning && CurrentTime > 0) {
-                CurrentTime -= Time.deltaTime;
-
-                // Fire interval events as long as thresholds are crossed
-                while (CurrentTime <= nextInterval && nextInterval >= 0) {
-                    OnInterval.Invoke();
-                    nextInterval -= interval;
-                }
+        /// <summary>Advances the countdown and invokes OnInterval for every crossed threshold.</summary>
+        public override void Tick(float deltaTime)
+        {
+            ValidateDeltaTime(deltaTime);
+            if (!IsRunning)
+            {
+                return;
             }
 
-            if (IsRunning && CurrentTime <= 0) {
-                CurrentTime = 0;
+            CurrentTime = Mathf.Max(0f, CurrentTime - deltaTime);
+
+            while (IsRunning && nextInterval >= 0f && CurrentTime <= nextInterval)
+            {
+                OnInterval?.Invoke();
+                nextInterval -= interval;
+            }
+
+            if (IsRunning && CurrentTime <= 0f)
+            {
+                CurrentTime = 0f;
                 Stop();
             }
         }
 
-        public override void Reset() {
+        /// <inheritdoc />
+        public override void Reset()
+        {
             base.Reset();
             nextInterval = initialTime - interval;
         }
 
-        public override void Reset(float newTime) {
+        /// <inheritdoc />
+        public override void Reset(float newTime)
+        {
             base.Reset(newTime);
             nextInterval = initialTime - interval;
         }
